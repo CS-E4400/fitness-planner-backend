@@ -1,0 +1,18 @@
+{
+  "name": "fitness-planner-backend",
+  "version": "1.0.0",
+  "description": "Fitness planner backend with Railway, Supabase, and Bun.js",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "bun-types": "^1.0.0"
+  }
+}
