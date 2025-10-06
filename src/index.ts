@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createClient } from '@supabase/supabase-js'
-import { ApiResponse, Workout, CreateWorkoutRequest, AuthResponse, LogoutResponse } from 'fitness-planner-shared'
+import { ApiResponse, Workout, CreateWorkoutRequest, AuthResponse, LogoutResponse } from './types'
 import { authMiddleware } from './middleware/auth'
 
 const app = new Hono()

@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import jwt from 'jsonwebtoken'
-import { ApiError } from 'fitness-planner-shared'
+import { ApiError } from '../types'
 
 const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET
 

@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
-    "fitness-planner-shared": "file:../shared",
     "hono": "^4.0.0",
     "jsonwebtoken": "^9.0.2"
   },
