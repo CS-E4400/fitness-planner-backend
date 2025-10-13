@@ -1,12 +1,12 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createClient } from '@supabase/supabase-js'
-import { ApiResponse, Workout, CreateWorkoutRequest, AuthResponse, LogoutResponse } from './types'
+import { ApiResponse, Workout, CreateWorkoutRequest, AuthResponse } from './types'
 import { authMiddleware } from './middleware/auth'
 
 const app = new Hono()
 
-// CORS middleware
+// 🧱 CORS setup
 app.use('/*', cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   allowHeaders: ['Content-Type', 'Authorization'],
@@ -14,76 +14,60 @@ app.use('/*', cors({
   credentials: true
 }))
 
-// Supabase client
+// 🔑 Environment variables check
 const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_ANON_KEY
+const anonKey = process.env.SUPABASE_ANON_KEY
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables')
+if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+  console.error('❌ Missing Supabase environment variables')
   process.exit(1)
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+// 🌐 Public Supabase client (anon key)
+const supabasePublic = createClient(supabaseUrl, anonKey)
 
-// Basic health check
-app.get('/', (c) => {
-  return c.json({ message: 'Fitness Planner Backend is running!' })
-})
+// 🩺 Health check
+app.get('/', (c) => c.json({ message: '✅ Fitness Planner Backend is running!' }))
 
-// Auth endpoints
+// 🔐 OAuth login (Google)
 app.get('/auth/google', async (c): Promise<Response> => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
 
   try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabasePublic.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${frontendUrl}/auth/callback`
-      }
+      options: { redirectTo: `${frontendUrl}/auth/callback` }
     })
 
-    if (error) {
-      return c.json({ error: error.message }, 400)
-    }
-
+    if (error) return c.json({ error: error.message }, 400)
     return c.redirect(data.url)
   } catch (error) {
     return c.json({ error: 'Failed to initiate Google OAuth' }, 500)
   }
 })
 
-app.post('/auth/logout', authMiddleware, async (c): Promise<LogoutResponse> => {
-  try {
-    const { error } = await supabase.auth.signOut()
-
-    if (error) {
-      return c.json({ success: false, error: error.message }, 400)
-    }
-
-    return c.json({ success: true })
-  } catch (error) {
-    return c.json({ success: false, error: 'Failed to logout' }, 500)
-  }
-})
-
-// Get current user session
+// 🔒 Get current session (example protected route)
 app.get('/auth/session', authMiddleware, async (c): Promise<AuthResponse> => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser()
-
-    if (error) {
-      return c.json({ user: null, session: null, error: error.message })
-    }
-
-    return c.json({ user, session: null }) // Session details are handled by frontend
-  } catch (error) {
+    const user = c.get('user')
+    return c.json({ user, session: null })
+  } catch {
     return c.json({ user: null, session: null, error: 'Failed to get session' })
   }
 })
 
-// Protected endpoint to get user workouts
+// 📦 Get workouts (protected)
 app.get('/api/workouts', authMiddleware, async (c): Promise<ApiResponse<Workout[]>> => {
   const user = c.get('user')
+  const authHeader = c.req.header('Authorization')
+  const token = authHeader?.split(' ')[1]
+
+  if (!token) return c.json({ error: 'Missing token' }, 401)
+
+  const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  })
 
   const { data, error } = await supabase
     .from('workouts')
@@ -91,16 +75,25 @@ app.get('/api/workouts', authMiddleware, async (c): Promise<ApiResponse<Workout[
     .eq('user_id', user.id)
 
   if (error) {
+    console.error('❌ Error fetching workouts:', error)
     return c.json({ error: error.message }, 500)
   }
 
   return c.json({ data })
 })
 
-// Protected endpoint to create a workout
+// 🏋️ Create a workout (protected)
 app.post('/api/workouts', authMiddleware, async (c): Promise<ApiResponse<Workout>> => {
   const user = c.get('user')
   const body: CreateWorkoutRequest = await c.req.json()
+  const authHeader = c.req.header('Authorization')
+  const token = authHeader?.split(' ')[1]
+
+  if (!token) return c.json({ error: 'Missing token' }, 401)
+
+  const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  })
 
   const workoutData = {
     ...body,
@@ -113,12 +106,16 @@ app.post('/api/workouts', authMiddleware, async (c): Promise<ApiResponse<Workout
     .select()
 
   if (error) {
+    console.error('❌ Supabase insert error:', error)
+    console.log('🧩 Sent data:', workoutData)
     return c.json({ error: error.message }, 500)
   }
 
+  console.log('✅ Workout created for user:', user.email)
   return c.json({ data: data[0] })
 })
 
+// 🚀 Export for Bun
 export default {
   port: process.env.PORT || 3000,
   fetch: app.fetch,
