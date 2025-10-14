@@ -15,7 +15,8 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     const error: ApiError = {
       code: 'MISSING_AUTH_HEADER',
-      message: 'Authorization header with Bearer token is required'
+      message: 'Please sign in to access this feature',
+      details: 'Authorization header with Bearer token is required'
     }
     return c.json({ error }, 401)
   }
@@ -37,7 +38,8 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   } catch (error) {
     const apiError: ApiError = {
       code: 'INVALID_TOKEN',
-      message: 'Invalid or expired JWT token'
+      message: 'Your session has expired. Please sign in again',
+      details: 'Invalid or expired JWT token'
     }
     return c.json({ error: apiError }, 401)
   }
@@ -51,7 +53,7 @@ export const optionalAuthMiddleware = createMiddleware(async (c, next) => {
     const token = authHeader.substring(7)
 
     try {
-      const payload = await verify(token, supabaseJwtSecret)
+      const payload = jwt.verify(token, supabaseJwtSecret) as any
       c.set('user', {
         id: payload.sub,
         email: payload.email,
