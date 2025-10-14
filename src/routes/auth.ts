@@ -3,10 +3,19 @@ import { supabasePublic } from '../config/supabase'
 import { env } from '../config/env'
 import { authMiddleware } from '../middleware/auth'
 import { ApiError } from '../types'
+import { withSwagger, createErrorSpec } from '../utils/route-wrapper'
 
 const router = new Hono()
 
-router.get('/google', async (c): Promise<Response> => {
+router.get('/google', withSwagger('/auth/google', 'GET', {
+  summary: 'Initiate Google OAuth login',
+  description: 'Redirects to Google OAuth consent screen for authentication',
+  responses: {
+    302: { description: 'Redirect to Google OAuth' },
+    400: createErrorSpec('OAUTH_INIT_FAILED', 'Unable to start Google sign-in. Please try again'),
+    500: createErrorSpec('OAUTH_ERROR', 'Sign-in service is temporarily unavailable. Please try again later')
+  }
+})(async (c): Promise<Response> => {
   try {
     const { data, error } = await supabasePublic.auth.signInWithOAuth({
       provider: 'google',
@@ -30,9 +39,36 @@ router.get('/google', async (c): Promise<Response> => {
     };
     return c.json({ error: apiError }, 500);
   }
-})
+}))
 
-router.get('/session', authMiddleware, async (c): Promise<Response> => {
+router.get('/session', authMiddleware, withSwagger('/auth/session', 'GET', {
+  summary: 'Get current user session',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Current user session information',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              user: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  email: { type: 'string' },
+                  role: { type: 'string' }
+                }
+              },
+              session: { type: 'object', nullable: true }
+            }
+          }
+        }
+      }
+    },
+    401: createErrorSpec('MISSING_AUTH_HEADER', 'Please sign in to access this feature')
+  }
+})(async (c): Promise<Response> => {
   try {
     const user = (c as any).get('user') as { id: string; email?: string; role?: string }
     return c.json({ user, session: null })
@@ -44,107 +80,6 @@ router.get('/session', authMiddleware, async (c): Promise<Response> => {
     };
     return c.json({ user: null, session: null, error: apiError });
   }
-})
-
-export const authSwagger = {
-  '/auth/google': {
-    get: {
-      summary: 'Initiate Google OAuth login',
-      description: 'Redirects to Google OAuth consent screen for authentication',
-      responses: {
-        302: { description: 'Redirect to Google OAuth' },
-        400: {
-          description: 'OAuth initiation failed',
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  error: {
-                    type: 'object',
-                    properties: {
-                      code: { type: 'string', example: 'OAUTH_INIT_FAILED' },
-                      message: { type: 'string', example: 'Unable to start Google sign-in. Please try again' },
-                      details: { type: 'string' }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        500: {
-          description: 'Server error',
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  error: {
-                    type: 'object',
-                    properties: {
-                      code: { type: 'string', example: 'OAUTH_ERROR' },
-                      message: { type: 'string', example: 'Sign-in service is temporarily unavailable. Please try again later' },
-                      details: { type: 'string' }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  '/auth/session': {
-    get: {
-      summary: 'Get current user session',
-      security: [{ bearerAuth: [] }],
-      responses: {
-        200: {
-          description: 'Current user session information',
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  user: {
-                    type: 'object',
-                    properties: {
-                      id: { type: 'string' },
-                      email: { type: 'string' },
-                      role: { type: 'string' }
-                    }
-                  },
-                  session: { type: 'object', nullable: true }
-                }
-              }
-            }
-          }
-        },
-        401: {
-          description: 'Authentication required',
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  error: {
-                    type: 'object',
-                    properties: {
-                      code: { type: 'string', example: 'MISSING_AUTH_HEADER' },
-                      message: { type: 'string', example: 'Please sign in to access this feature' },
-                      details: { type: 'string' }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
+}))
 
 export default router
