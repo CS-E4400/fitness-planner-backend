@@ -1,33 +1,22 @@
-export interface Workout {
-  id: string;
-  user_id: string;
-  name: string;
-  description?: string;
-  exercises: Exercise[];
-  duration_minutes?: number;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  created_at: string;
-  updated_at: string;
-}
+// types/workout.ts
 
-export interface Exercise {
-  id: string;
-  name: string;
-  sets: number;
-  reps: number;
-  weight_kg?: number;
-  rest_seconds?: number;
-  notes?: string;
+import { WorkoutSet } from './workoutSet'
+
+export interface Workout {
+  id: string
+  program_id: string
+  user_id: string
+  date: string
+  duration_min?: number
+  created_at: string
 }
 
 export interface CreateWorkoutRequest {
-  name: string;
-  description?: string;
-  exercises: Omit<Exercise, 'id'>[];
-  duration_minutes?: number;
-  difficulty: Workout['difficulty'];
+  program_id: string
+  date?: string
+  duration_min?: number
 }
 
 export interface UpdateWorkoutRequest extends Partial<CreateWorkoutRequest> {
-  id: string;
+  id: string
 }
