@@ -3,6 +3,7 @@ export type SwaggerSpec = {
   summary?: string
   description?: string
   security?: any[]
+  parameters?: any[]
   requestBody?: any
   responses: Record<string, any>
 }
@@ -15,7 +16,7 @@ const swaggerRegistry: Record<string, SwaggerSpec> = {}
 
 // Wrapper function that ensures swagger documentation is provided
 export function withSwagger(path: string, method: string, swaggerSpec: SwaggerSpec) {
-  return function(handler: RouteHandler) {
+  return function (handler: RouteHandler) {
     // Register the swagger spec
     swaggerRegistry[`${path}:${method.toLowerCase()}`] = swaggerSpec
 
